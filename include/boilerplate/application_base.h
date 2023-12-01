@@ -6,6 +6,10 @@
 #include <GLFW/glfw3.h>
 #include <webgpu/webgpu.hpp>
 
+#pragma warning(push, 3)
+#include <glm/glm.hpp>
+#pragma warning(pop)
+
 class ApplicationBase {
 public:
     ApplicationBase(const char* title);
