@@ -60,9 +60,12 @@ ApplicationBase::ApplicationBase(const char* title)
         std::cerr << "Could not create WebGPU adapter!" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    this->m_surface_format = this->m_surface.getPreferredFormat(adapter);
+
+#if SHOW_WEBGPU_INFO != 0
     this->inspect_adapter(adapter);
     this->inspect_surface(adapter, this->m_surface);
-    this->m_surface_format = this->m_surface.getPreferredFormat(adapter);
+#endif
 
     wgpu::DeviceDescriptor device_desc { wgpu::Default };
     device_desc.label = "Application Device";
