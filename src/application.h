@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boilerplate/application_base.h>
+#include <application_base.h>
 
 class Application final : public ApplicationBase {
 public:

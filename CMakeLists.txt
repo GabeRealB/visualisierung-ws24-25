@@ -3,26 +3,17 @@ project(app)
 
 add_subdirectory(third_party)
 
-set(APP_HEADERS
-    include/boilerplate/application_base.h
-    include/boilerplate/application.h
-    include/boilerplate/pvm_volume.h
+file(GLOB_RECURSE APP_SRC
+    src/*.h
+    src/*.cpp
 )
 
-set(APP_SRC
-    src/application_base.cpp
-    src/application.cpp
-    src/main.cpp
-    src/pvm_volume.cpp
-    src/webgpu.cpp
-)
-
-add_executable(app ${APP_HEADERS} ${APP_SRC})
+add_executable(app ${APP_SRC})
 set_target_properties(app PROPERTIES CXX_STANDARD 20)
 target_link_libraries(app PRIVATE glfw glfw3webgpu glm imgui volumeio webgpu)
 target_copy_webgpu_binaries(app)
 
-target_include_directories(app PRIVATE include)
+target_include_directories(app PRIVATE src)
 
 if (MSVC)
     target_compile_options(app PRIVATE /W4)

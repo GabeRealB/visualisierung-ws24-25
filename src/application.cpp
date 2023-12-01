@@ -1,4 +1,4 @@
-#include <boilerplate/application.h>
+#include <application.h>
 
 #include <array>
 #include <cstdlib>

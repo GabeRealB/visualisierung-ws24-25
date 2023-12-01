@@ -1,4 +1,4 @@
-#include <boilerplate/pvm_volume.h>
+#include <pvm_volume.h>
 
 #include <algorithm>
 #include <limits>
