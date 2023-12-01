@@ -13,11 +13,16 @@ public:
     Application& operator=(Application&&) = delete;
 
 protected:
-    void update(wgpu::CommandEncoder&) override;
-    void render(wgpu::CommandEncoder&, wgpu::TextureView&) override;
+    void on_frame(wgpu::CommandEncoder&, wgpu::TextureView&) override;
 
 private:
     wgpu::ShaderModule m_shader_module;
     wgpu::PipelineLayout m_pipeline_layout;
     wgpu::RenderPipeline m_render_pipeline;
+
+    float m_f;
+    int m_counter;
+    bool m_show_demo_window;
+    bool m_show_another_window;
+    ImVec4 m_clear_color;
 };

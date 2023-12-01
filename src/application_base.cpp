@@ -1,5 +1,6 @@
 #include <boilerplate/application_base.h>
 
+#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <utility>
@@ -7,16 +8,21 @@
 
 #include <glfw3webgpu.h>
 
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_wgpu.h>
+
 ApplicationBase::ApplicationBase(const char* title)
     : m_window { nullptr }
+    , m_imgui_context { nullptr }
     , m_instance { nullptr }
     , m_surface { nullptr }
     , m_error_callback { nullptr }
     , m_device { nullptr }
     , m_surface_format { wgpu::TextureFormat::Undefined }
-    , m_window_width { 640 }
-    , m_window_height { 480 }
+    , m_window_width { 1280 }
+    , m_window_height { 720 }
 {
+    // Init GLFW and window
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW!" << std::endl;
         std::exit(EXIT_FAILURE);
@@ -41,6 +47,7 @@ ApplicationBase::ApplicationBase(const char* title)
         }
     });
 
+    // Init WebGPU
     this->m_instance = wgpu::createInstance({ wgpu::Default });
     if (!this->m_instance) {
         std::cerr << "Could not create WebGPU instance!" << std::endl;
@@ -67,9 +74,44 @@ ApplicationBase::ApplicationBase(const char* title)
     this->inspect_surface(adapter, this->m_surface);
 #endif
 
+    // Default limits from https://www.w3.org/TR/webgpu/#limits
+    wgpu::RequiredLimits device_limits { wgpu::Default };
+    device_limits.limits.maxTextureDimension1D = 8192;
+    device_limits.limits.maxTextureDimension2D = 8192;
+    device_limits.limits.maxTextureDimension3D = 2048;
+    device_limits.limits.maxTextureArrayLayers = 256;
+    device_limits.limits.maxBindGroups = 4;
+    device_limits.limits.maxBindGroupsPlusVertexBuffers = 24;
+    device_limits.limits.maxBindingsPerBindGroup = 1000;
+    device_limits.limits.maxDynamicUniformBuffersPerPipelineLayout = 8;
+    device_limits.limits.maxDynamicStorageBuffersPerPipelineLayout = 4;
+    device_limits.limits.maxSampledTexturesPerShaderStage = 16;
+    device_limits.limits.maxSamplersPerShaderStage = 16;
+    device_limits.limits.maxStorageBuffersPerShaderStage = 8;
+    device_limits.limits.maxStorageTexturesPerShaderStage = 4;
+    device_limits.limits.maxUniformBuffersPerShaderStage = 12;
+    device_limits.limits.maxUniformBufferBindingSize = 64 << 10;
+    device_limits.limits.maxStorageBufferBindingSize = 128 << 20;
+    device_limits.limits.minUniformBufferOffsetAlignment = 256;
+    device_limits.limits.minStorageBufferOffsetAlignment = 256;
+    device_limits.limits.maxVertexBuffers = 8;
+    device_limits.limits.maxBufferSize = 256 << 20;
+    device_limits.limits.maxVertexAttributes = 16;
+    device_limits.limits.maxVertexBufferArrayStride = 2048;
+    device_limits.limits.maxInterStageShaderComponents = 60;
+    device_limits.limits.maxInterStageShaderVariables = 16;
+    device_limits.limits.maxColorAttachments = 8;
+    device_limits.limits.maxColorAttachmentBytesPerSample = 32;
+    device_limits.limits.maxComputeWorkgroupStorageSize = 16 << 10;
+    device_limits.limits.maxComputeInvocationsPerWorkgroup = 256;
+    device_limits.limits.maxComputeWorkgroupSizeX = 256;
+    device_limits.limits.maxComputeWorkgroupSizeY = 256;
+    device_limits.limits.maxComputeWorkgroupSizeZ = 64;
+    device_limits.limits.maxComputeWorkgroupsPerDimension = 65535;
+
     wgpu::DeviceDescriptor device_desc { wgpu::Default };
     device_desc.label = "Application Device";
-    device_desc.requiredLimits = nullptr;
+    device_desc.requiredLimits = &device_limits;
     device_desc.defaultQueue.label = "Default application queue";
     this->m_device = adapter.requestDevice(device_desc);
     adapter.release();
@@ -87,12 +129,23 @@ ApplicationBase::ApplicationBase(const char* title)
         std::cerr << std::endl;
     };
     this->m_error_callback = this->m_device.setUncapturedErrorCallback(on_device_error);
-
     this->configure_surface();
+
+    // Init Dear ImGUI
+    IMGUI_CHECKVERSION();
+    this->m_imgui_context = ImGui::CreateContext();
+    if (!this->m_imgui_context) {
+        std::cerr << "Could not create Dear ImGui context!" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    ImGui::SetCurrentContext(this->m_imgui_context);
+    ImGui_ImplGlfw_InitForOther(this->m_window, true);
+    ImGui_ImplWGPU_Init(this->m_device, 3, this->m_surface_format);
 }
 
 ApplicationBase::ApplicationBase(ApplicationBase&& app)
     : m_window { std::exchange(app.m_window, nullptr) }
+    , m_imgui_context { std::exchange(app.m_imgui_context, nullptr) }
     , m_instance { std::exchange(app.m_instance, nullptr) }
     , m_surface { std::exchange(app.m_surface, nullptr) }
     , m_error_callback { std::exchange(app.m_error_callback, nullptr) }
@@ -108,6 +161,13 @@ ApplicationBase::ApplicationBase(ApplicationBase&& app)
 
 ApplicationBase::~ApplicationBase()
 {
+    if (this->m_imgui_context) {
+        ImGui::SetCurrentContext(this->m_imgui_context);
+        ImGui_ImplWGPU_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext(this->m_imgui_context);
+    }
+
     if (this->m_device) {
         this->m_device.destroy();
         this->m_device.release();
@@ -133,20 +193,28 @@ ApplicationBase::~ApplicationBase()
 
 void ApplicationBase::run()
 {
+    // Check that everything is initialized.
     if (!this->m_window) {
         std::cerr << "No window associated with the application!" << std::endl;
         return;
     }
-
+    if (!this->m_imgui_context) {
+        std::cerr << "No Dear ImGui context associated with the application!" << std::endl;
+        return;
+    }
     if (!this->m_device) {
         std::cerr << "No device associated with the application!" << std::endl;
         return;
     }
 
+    // Bind the Dear ImGui context.
+    ImGui::SetCurrentContext(this->m_imgui_context);
+
     auto queue = this->m_device.getQueue();
     while (!glfwWindowShouldClose(this->m_window)) {
         glfwPollEvents();
 
+        // Get a render target texture.
         wgpu::SurfaceTexture surface_texture { wgpu::Default };
         this->m_surface.getCurrentTexture(&surface_texture);
         wgpu::Texture texture { surface_texture.texture };
@@ -168,9 +236,14 @@ void ApplicationBase::run()
             std::cerr << "Could not acquire the current surface texture" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-
         auto surface_texture_view = texture.createView();
 
+        // Init a Dear ImGui frame.
+        ImGui_ImplWGPU_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // Init a command encoder for the frame.
         wgpu::CommandEncoderDescriptor desc { wgpu::Default };
         auto command_encoder = this->m_device.createCommandEncoder(desc);
         if (!command_encoder) {
@@ -178,13 +251,35 @@ void ApplicationBase::run()
             std::exit(EXIT_FAILURE);
         }
 
-        this->update(command_encoder);
-        this->render(command_encoder, surface_texture_view);
+        this->on_frame(command_encoder, surface_texture_view);
 
+        // Finish the Dear ImGui frame.
+        auto color_attachments = std::array { wgpu::RenderPassColorAttachment { wgpu::Default } };
+        color_attachments[0].view = surface_texture_view;
+        color_attachments[0].loadOp = wgpu::LoadOp::Load;
+        color_attachments[0].storeOp = wgpu::StoreOp::Store;
+        color_attachments[0].clearValue = wgpu::Color { 0.0, 1.0, 0.0, 1.0 };
+
+        wgpu::RenderPassDescriptor imgui_pass_desc { wgpu::Default };
+        imgui_pass_desc.colorAttachmentCount = color_attachments.size();
+        imgui_pass_desc.colorAttachments = color_attachments.data();
+        auto imgui_pass_encoder = command_encoder.beginRenderPass(imgui_pass_desc);
+        if (!imgui_pass_encoder) {
+            std::cerr << "Could not create Dear ImGui render pass!" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        ImGui::EndFrame();
+        ImGui::Render();
+        ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), imgui_pass_encoder);
+        imgui_pass_encoder.end();
+
+        // Enqueue comands.
         auto command_buffer = command_encoder.finish({ wgpu::Default });
         queue.submit(command_buffer);
         this->m_surface.present();
 
+        imgui_pass_encoder.release();
         command_buffer.release();
         command_encoder.release();
         surface_texture_view.release();
@@ -192,9 +287,7 @@ void ApplicationBase::run()
     }
 }
 
-void ApplicationBase::update(wgpu::CommandEncoder&) { }
-
-void ApplicationBase::render(wgpu::CommandEncoder&, wgpu::TextureView&) { }
+void ApplicationBase::on_frame(wgpu::CommandEncoder&, wgpu::TextureView&) { }
 
 void ApplicationBase::on_resize()
 {

@@ -17,7 +17,7 @@ set(APP_SRC
 
 add_executable(app ${APP_HEADERS} ${APP_SRC})
 set_target_properties(app PROPERTIES CXX_STANDARD 20)
-target_link_libraries(app PRIVATE glfw glfw3webgpu glm webgpu)
+target_link_libraries(app PRIVATE glfw glfw3webgpu glm imgui webgpu)
 target_copy_webgpu_binaries(app)
 
 target_include_directories(app PRIVATE include)

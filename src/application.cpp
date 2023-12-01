@@ -10,6 +10,11 @@ Application::Application()
     , m_shader_module { nullptr }
     , m_pipeline_layout { nullptr }
     , m_render_pipeline { nullptr }
+    , m_f { 0.0f }
+    , m_counter { 0 }
+    , m_show_demo_window { true }
+    , m_show_another_window { false }
+    , m_clear_color { 0.45f, 0.55f, 0.60f, 1.0f }
 {
     wgpu::ShaderModuleWGSLDescriptor wgsl_module_desc { wgpu::Default };
     wgsl_module_desc.code = R"(
@@ -73,6 +78,11 @@ Application::Application(Application&& app)
     , m_shader_module { std::exchange(app.m_shader_module, nullptr) }
     , m_pipeline_layout { std::exchange(app.m_pipeline_layout, nullptr) }
     , m_render_pipeline { std::exchange(app.m_render_pipeline, nullptr) }
+    , m_f { std::exchange(app.m_f, 0.0f) }
+    , m_counter { std::exchange(app.m_counter, 0) }
+    , m_show_demo_window { std::exchange(app.m_show_demo_window, true) }
+    , m_show_another_window { std::exchange(app.m_show_another_window, false) }
+    , m_clear_color { std::exchange(app.m_clear_color, { 0.45f, 0.55f, 0.60f, 1.00f }) }
 {
 }
 
@@ -91,15 +101,33 @@ Application::~Application()
     }
 }
 
-void Application::update(wgpu::CommandEncoder&) { }
-
-void Application::render(wgpu::CommandEncoder& encoder, wgpu::TextureView& frame)
+void Application::on_frame(wgpu::CommandEncoder& encoder, wgpu::TextureView& frame)
 {
+    ImGui::Begin("Hello, world!"); // Create a window called "Hello, World!".
+
+    ImGui::Text("This is some useful text."); // Display a string.
+    ImGui::Checkbox("Demo Window", &this->m_show_demo_window); // Booleans can be modified with checkboxes.
+    ImGui::Checkbox("Another Window", &this->m_show_another_window);
+
+    ImGui::SliderFloat("float", &this->m_f, 0.0f, 1.0f);
+    ImGui::ColorEdit3("clear color", (float*)&this->m_clear_color);
+
+    if (ImGui::Button("Button")) {
+        this->m_counter++;
+    }
+    ImGui::SameLine();
+    ImGui::Text("counter = %d", this->m_counter);
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+    ImGui::End();
+
     auto color_attachments = std::array { wgpu::RenderPassColorAttachment { wgpu::Default } };
     color_attachments[0].view = frame;
     color_attachments[0].loadOp = wgpu::LoadOp::Clear;
     color_attachments[0].storeOp = wgpu::StoreOp::Store;
-    color_attachments[0].clearValue = wgpu::Color { 0.0, 1.0, 0.0, 1.0 };
+    color_attachments[0].clearValue = wgpu::Color { this->m_clear_color.x, this->m_clear_color.y, this->m_clear_color.z, this->m_clear_color.w };
 
     wgpu::RenderPassDescriptor pass_desc { wgpu::Default };
     pass_desc.colorAttachmentCount = color_attachments.size();

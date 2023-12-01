@@ -4,6 +4,7 @@
 #include <memory>
 
 #include <GLFW/glfw3.h>
+#include <imgui.h>
 #include <webgpu/webgpu.hpp>
 
 #pragma warning(push, 3)
@@ -23,9 +24,7 @@ public:
     void run();
 
 protected:
-    virtual void update(wgpu::CommandEncoder&);
-    virtual void render(wgpu::CommandEncoder&, wgpu::TextureView&);
-
+    virtual void on_frame(wgpu::CommandEncoder&, wgpu::TextureView&);
     virtual void on_resize();
 
     wgpu::Device& device();
@@ -39,6 +38,7 @@ private:
     void inspect_surface(wgpu::Adapter&, wgpu::Surface&) const;
 
     GLFWwindow* m_window;
+    ImGuiContext* m_imgui_context;
     wgpu::Instance m_instance;
     wgpu::Surface m_surface;
     std::unique_ptr<wgpu::ErrorCallback> m_error_callback;

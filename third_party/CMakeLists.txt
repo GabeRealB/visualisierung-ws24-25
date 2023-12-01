@@ -1,4 +1,5 @@
 add_subdirectory(glfw)
 add_subdirectory(glfw3webgpu)
 add_subdirectory(glm-master)
+add_subdirectory(imgui-master)
 add_subdirectory(webgpu)
