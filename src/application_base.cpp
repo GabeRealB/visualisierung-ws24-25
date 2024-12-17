@@ -1,3 +1,4 @@
+#include "GLFW/glfw3.h"
 #include <application_base.h>
 
 #include <array>
@@ -20,6 +21,8 @@ ApplicationBase::ApplicationBase(const char* title)
     , m_surface_format { wgpu::TextureFormat::Undefined }
     , m_window_width { 1280 }
     , m_window_height { 720 }
+    , m_window_width_scale { 1.0f }
+    , m_window_height_scale { 1.0f }
 {
     // Init GLFW and window
     if (!glfwInit()) {
@@ -33,6 +36,7 @@ ApplicationBase::ApplicationBase(const char* title)
         std::cerr << "Could not create a window!" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    glfwGetWindowContentScale(this->m_window, &this->m_window_width_scale, &this->m_window_height_scale);
 
     glfwSetWindowUserPointer(this->m_window, static_cast<void*>(this));
     glfwSetFramebufferSizeCallback(this->m_window, [](GLFWwindow* window, int width, int height) {
@@ -61,7 +65,7 @@ ApplicationBase::ApplicationBase(const char* title)
 
     wgpu::RequestAdapterOptions adapter_opts { wgpu::Default };
     adapter_opts.compatibleSurface = this->m_surface;
-    auto adapter = this->m_instance.requestAdapter({});
+    auto adapter = this->m_instance.requestAdapter(adapter_opts);
     if (!adapter) {
         std::cerr << "Could not create WebGPU adapter!" << std::endl;
         std::exit(EXIT_FAILURE);
@@ -154,6 +158,8 @@ ApplicationBase::ApplicationBase(ApplicationBase&& app)
     , m_surface_format { std::exchange(app.m_surface_format, wgpu::TextureFormat::Undefined) }
     , m_window_width { std::exchange(app.m_window_width, 0) }
     , m_window_height { std::exchange(app.m_window_height, 0) }
+    , m_window_width_scale { std::exchange(app.m_window_width_scale, 1.0f) }
+    , m_window_height_scale { std::exchange(app.m_window_height_scale, 1.0f) }
 {
     if (this->m_window) {
         glfwSetWindowUserPointer(this->m_window, static_cast<void*>(this));
@@ -295,6 +301,7 @@ void ApplicationBase::on_resize()
 
     int width, height;
     glfwGetWindowSize(this->m_window, &width, &height);
+    glfwGetWindowContentScale(this->m_window, &this->m_window_width_scale, &this->m_window_height_scale);
 
     if ((width == 0 && height == 0) || (static_cast<uint32_t>(width) == this->m_window_width && static_cast<uint32_t>(height) == this->m_window_height)) {
         return;
@@ -328,8 +335,8 @@ void ApplicationBase::configure_surface()
     wgpu::SurfaceConfiguration config { wgpu::Default };
     config.usage = wgpu::TextureUsage::RenderAttachment;
     config.format = this->m_surface_format;
-    config.width = this->m_window_width;
-    config.height = this->m_window_height;
+    config.width = static_cast<std::uint32_t>(this->m_window_width * this->m_window_width_scale);
+    config.height = static_cast<std::uint32_t>(this->m_window_height * this->m_window_height_scale);
     config.presentMode = wgpu::PresentMode::Fifo;
     config.alphaMode = wgpu::CompositeAlphaMode::Opaque;
     config.device = this->m_device;

@@ -45,4 +45,6 @@ private:
     wgpu::TextureFormat m_surface_format;
     uint32_t m_window_width;
     uint32_t m_window_height;
+    float m_window_width_scale;
+    float m_window_height_scale;
 };
