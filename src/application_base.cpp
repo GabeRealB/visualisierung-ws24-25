@@ -321,6 +321,16 @@ const wgpu::Device& ApplicationBase::device() const
     return this->m_device;
 }
 
+uint32_t ApplicationBase::scaled_surface_width() const
+{
+    return static_cast<std::uint32_t>(this->m_window_width * this->m_window_width_scale);
+}
+
+uint32_t ApplicationBase::scaled_surface_height() const
+{
+    return static_cast<std::uint32_t>(this->m_window_height * this->m_window_height_scale);
+}
+
 wgpu::TextureFormat ApplicationBase::surface_format() const
 {
     return this->m_surface_format;
@@ -335,8 +345,8 @@ void ApplicationBase::configure_surface()
     wgpu::SurfaceConfiguration config { wgpu::Default };
     config.usage = wgpu::TextureUsage::RenderAttachment;
     config.format = this->m_surface_format;
-    config.width = static_cast<std::uint32_t>(this->m_window_width * this->m_window_width_scale);
-    config.height = static_cast<std::uint32_t>(this->m_window_height * this->m_window_height_scale);
+    config.width = this->scaled_surface_width();
+    config.height = this->scaled_surface_height();
     config.presentMode = wgpu::PresentMode::Fifo;
     config.alphaMode = wgpu::CompositeAlphaMode::Opaque;
     config.device = this->m_device;

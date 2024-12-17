@@ -152,7 +152,7 @@ std::size_t PVMVolume::size_z() const
     return this->m_size_z;
 }
 
-glm::vec<3, std::size_t> PVMVolume::extends() const
+glm::vec<3, std::size_t> PVMVolume::extents() const
 {
     return glm::vec<3, std::size_t> {
         this->m_size_x,

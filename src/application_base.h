@@ -9,6 +9,8 @@
 
 #pragma warning(push, 3)
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #pragma warning(pop)
 
 class ApplicationBase {
@@ -30,6 +32,8 @@ protected:
     wgpu::Device& device();
     const wgpu::Device& device() const;
 
+    uint32_t scaled_surface_width() const;
+    uint32_t scaled_surface_height() const;
     wgpu::TextureFormat surface_format() const;
 
 private:

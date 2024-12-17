@@ -59,10 +59,10 @@ public:
     std::size_t size_z() const;
 
     /**
-     * Returns the extends (size_x, size_y, size_z) of the volume.
-     * @return volume extends
-     */
-    glm::vec<3, std::size_t> extends() const;
+    * Returns the extents (size_x, size_y, size_z) of the volume.
+    * @return volume extents
+    */
+    glm::vec<3, std::size_t> extents() const;
 
     /**
      * Returns the size of a voxel in the x direction.
