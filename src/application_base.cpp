@@ -16,7 +16,6 @@ ApplicationBase::ApplicationBase(const char* title)
     , m_imgui_context { nullptr }
     , m_instance { nullptr }
     , m_surface { nullptr }
-    , m_error_callback { nullptr }
     , m_device { nullptr }
     , m_surface_format { wgpu::TextureFormat::Undefined }
     , m_window_width { 1280 }
@@ -67,7 +66,10 @@ ApplicationBase::ApplicationBase(const char* title)
         std::cerr << "Could not create WebGPU adapter!" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    this->m_surface_format = this->m_surface.getPreferredFormat(adapter);
+
+    wgpu::SurfaceCapabilities surface_cap { wgpu::Default };
+    this->m_surface.getCapabilities(adapter, &surface_cap);
+    this->m_surface_format = surface_cap.formats[0];
 
 #if SHOW_WEBGPU_INFO != 0
     this->inspect_adapter(adapter);
@@ -109,10 +111,19 @@ ApplicationBase::ApplicationBase(const char* title)
     device_limits.limits.maxComputeWorkgroupSizeZ = 64;
     device_limits.limits.maxComputeWorkgroupsPerDimension = 65535;
 
+    auto on_device_error = [](WGPUErrorType type, const char* message, void*) {
+        std::cerr << "Uncaptured device error: type " << type;
+        if (message) {
+            std::cerr << " (" << message << ")";
+        }
+        std::cerr << std::endl;
+    };
+
     wgpu::DeviceDescriptor device_desc { wgpu::Default };
     device_desc.label = "Application Device";
     device_desc.requiredLimits = &device_limits;
     device_desc.defaultQueue.label = "Default application queue";
+    device_desc.uncapturedErrorCallbackInfo.callback = on_device_error;
     this->m_device = adapter.requestDevice(device_desc);
     adapter.release();
 
@@ -120,15 +131,6 @@ ApplicationBase::ApplicationBase(const char* title)
         std::cerr << "Could not create WebGPU device!" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-
-    auto on_device_error = [](wgpu::ErrorType type, const char* message) {
-        std::cerr << "Uncaptured device error: type " << type;
-        if (message) {
-            std::cerr << " (" << message << ")";
-        }
-        std::cerr << std::endl;
-    };
-    this->m_error_callback = this->m_device.setUncapturedErrorCallback(on_device_error);
     this->configure_surface();
 
     // Init Dear ImGUI
@@ -148,7 +150,6 @@ ApplicationBase::ApplicationBase(ApplicationBase&& app)
     , m_imgui_context { std::exchange(app.m_imgui_context, nullptr) }
     , m_instance { std::exchange(app.m_instance, nullptr) }
     , m_surface { std::exchange(app.m_surface, nullptr) }
-    , m_error_callback { std::exchange(app.m_error_callback, nullptr) }
     , m_device { std::exchange(app.m_device, nullptr) }
     , m_surface_format { std::exchange(app.m_surface_format, wgpu::TextureFormat::Undefined) }
     , m_window_width { std::exchange(app.m_window_width, 0) }
@@ -171,10 +172,6 @@ ApplicationBase::~ApplicationBase()
     if (this->m_device) {
         this->m_device.destroy();
         this->m_device.release();
-    }
-
-    if (this->m_error_callback) {
-        this->m_error_callback.reset();
     }
 
     if (this->m_surface) {
@@ -276,12 +273,13 @@ void ApplicationBase::run()
 
         // Enqueue comands.
         auto command_buffer = command_encoder.finish({ wgpu::Default });
+        imgui_pass_encoder.release();
+        command_encoder.release();
+
         queue.submit(command_buffer);
         this->m_surface.present();
 
-        imgui_pass_encoder.release();
         command_buffer.release();
-        command_encoder.release();
         surface_texture_view.release();
         texture.release();
     }
@@ -380,17 +378,16 @@ void ApplicationBase::inspect_adapter(wgpu::Adapter& adapter) const
         std::cout << " - maxComputeWorkgroupsPerDimension: " << limits.limits.maxComputeWorkgroupsPerDimension << std::endl;
     }
 
-    wgpu::AdapterProperties properties {};
-    adapter.getProperties(&properties);
+    wgpu::AdapterInfo info {};
+    adapter.getInfo(&info);
     std::cout << "Adapter properties:" << std::endl;
-    std::cout << " - vendorID: " << properties.vendorID << std::endl;
-    std::cout << " - deviceID: " << properties.deviceID << std::endl;
-    std::cout << " - name: " << properties.name << std::endl;
-    if (properties.driverDescription) {
-        std::cout << " - driverDescription: " << properties.driverDescription << std::endl;
-    }
-    std::cout << " - adapterType: " << properties.adapterType << std::endl;
-    std::cout << " - backendType: " << properties.backendType << std::endl;
+    std::cout << " - vendorID: " << info.vendorID << std::endl;
+    std::cout << " - vendor: " << info.vendor << std::endl;
+    std::cout << " - deviceID: " << info.deviceID << std::endl;
+    std::cout << " - device: " << info.device << std::endl;
+    std::cout << " - driverDescription: " << info.description << std::endl;
+    std::cout << " - adapterType: " << info.adapterType << std::endl;
+    std::cout << " - backendType: " << info.backendType << std::endl;
 }
 
 void ApplicationBase::inspect_surface(wgpu::Adapter& adapter, wgpu::Surface& surface) const

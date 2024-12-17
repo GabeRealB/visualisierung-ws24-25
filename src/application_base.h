@@ -41,7 +41,6 @@ private:
     ImGuiContext* m_imgui_context;
     wgpu::Instance m_instance;
     wgpu::Surface m_surface;
-    std::unique_ptr<wgpu::ErrorCallback> m_error_callback;
     wgpu::Device m_device;
     wgpu::TextureFormat m_surface_format;
     uint32_t m_window_width;
